@@ -14,23 +14,36 @@ import Dataset, Output, Model
 def main():
 	# add argument parser
     parser = ArgumentParser()
-    parser.add_argument("--data_path", type=str, help="Path to proband data file", required=True)
+    parser.add_argument("--data_path", type=str, help="Path to proband data file, will be concatenated with switch param", default="data/exp_metadata_cleaned_js")
     parser.add_argument("--meta_data_columns", type=str, nargs='+', help="Columns to include in the meta data tensor", required=True)
-    parser.add_argument("--output_path", type=str, help="Path to save the processed data", default="data/")
+    parser.add_argument("--output_path", type=str, help="Path to save the processed data", default="results/")
     parser.add_argument("--shift", type=bool, help="Whether to shift the data", default=True)
     parser.add_argument("--reference_data_path", type=str, help="Path to reference data file, without the _mean.csv or _std.csv suffix, and with _ln suffix if running with lognorm model", required=True)
-    parser.add_argument("--switch", type=bool, help="Whether to switch the data", default=True)
+    parser.add_argument("--switch", help="Whether to use data represented in switches", action="store_true")
     parser.add_argument("--model", type=str, help="Model to use", default="Normal", required=True)
 
     args = parser.parse_args()
 
-    print("Loading data from: ", args.data_path)
-    print("Saving data to: ", args.output_path)
-    print("Meta data columns: ", args.meta_data_columns)
+    print(f"Running model: {args.model}, switch: {args.switch}, shift: {args.shift}")
+
+    # read in the data
+    filename = args.data_path + '_switch.csv' if args.switch else args.data_path  + '_gene.csv'
+    proband_data = pd.read_csv(filename, delimiter="\t", index_col=0)
+    meta_data_columns = args.meta_data_columns
+    print("Loaded proband data from file: ", filename)
+
+    # ensure metadata columns match the data
+    assert all([c in proband_data.columns for c in meta_data_columns])
+
+    # change js to be in natural log if running lognorm model
+    if args.model == "LogNorm":
+        proband_data.iloc[:, len(meta_data_columns):] = np.log(2 ** (proband_data.iloc[:, len(meta_data_columns):].values - 10)) + 10
+        print("Transformed data to natural log")
 
 	# create file names
+    filename_suff = args.data_path.split("/")[-1]
     today = date.today()
-    save_dir = args.output_path + args.model + "/"
+    save_dir = args.output_path + filename_suff + "/" + args.model + "/"
     os.makedirs(save_dir, exist_ok=True)
     normalization = today.strftime("%Y-%m-%d") + "_js"
     if args.switch:
@@ -41,16 +54,12 @@ def main():
 	# create logger
     logger = Output.Logger(save_dir, normalization)
 
-    # read in the data
-    proband_data = pd.read_csv(args.data_path, delimiter="\t", index_col=0)
-    meta_data_columns = args.meta_data_columns
-    print("Loaded proband data with first 10 columns: ", proband_data.columns[:10])
-
+    # load reference data
     reference_path = args.reference_data_path
-    if args.switch:
-        reference_path += "_switch"
     if args.model == "LogNorm":
         reference_path += "_ln"
+    if args.switch:
+        reference_path += "_switch"
 
     clusters_mean = pd.read_csv(reference_path + "_mean.csv", index_col=0)
     clusters_std = pd.read_csv(reference_path + "_std.csv", index_col=0)
