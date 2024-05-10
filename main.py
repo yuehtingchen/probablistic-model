@@ -18,7 +18,7 @@ def main():
     parser.add_argument("--meta_data_columns", type=str, nargs='+', help="Columns to include in the meta data tensor", required=True)
     parser.add_argument("--output_path", type=str, help="Path to save the processed data", default="data/")
     parser.add_argument("--shift", type=bool, help="Whether to shift the data", default=True)
-    parser.add_argument("--reference_data_path", type=str, help="Path to reference data file, without the _mean.csv or _std.csv suffix", required=True)
+    parser.add_argument("--reference_data_path", type=str, help="Path to reference data file, without the _mean.csv or _std.csv suffix, and with _ln suffix if running with lognorm model", required=True)
     parser.add_argument("--switch", type=bool, help="Whether to switch the data", default=True)
     parser.add_argument("--model", type=str, help="Model to use", default="Normal", required=True)
 
@@ -46,7 +46,12 @@ def main():
     meta_data_columns = args.meta_data_columns
     print("Loaded proband data with first 10 columns: ", proband_data.columns[:10])
 
-    reference_path = args.reference_data_path + "_switch" if args.switch else args.reference_data_path
+    reference_path = args.reference_data_path
+    if args.switch:
+        reference_path += "_switch"
+    if args.model == "LogNorm":
+        reference_path += "_ln"
+
     clusters_mean = pd.read_csv(reference_path + "_mean.csv", index_col=0)
     clusters_std = pd.read_csv(reference_path + "_std.csv", index_col=0)
     print("Loaded reference data from: ", reference_path + "_mean.csv", reference_path + "_std.csv")
