@@ -3,6 +3,10 @@ __pycache__/
 
 # data
 data/
+plots/
+
+# jupyter
+.ipynb_checkpoints/
 
 # MAC
 .DS_Store
