@@ -1,0 +1,8 @@
+# python
+__pycache__/
+
+# data
+data/
+
+# MAC
+.DS_Store
