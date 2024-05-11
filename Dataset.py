@@ -14,13 +14,14 @@ class ProbandDataset(Dataset):
 		return self.proband_data[idx]
 
 
-class ProbandData():
-	def __init__(self, day, endo, meta_data, seq_length, X=None):
-		self.day = day
-		self.endo = endo
-		self.meta_data = meta_data
-		self.seq_length = seq_length
-		self.X = X
+
+def proband_data(day, endo, meta_data, X=None):
+	return dict({
+		'day': day,
+		'endo': endo,
+		'meta_data': meta_data,
+		'X': X
+	})
 
 
 def create_proband_data(df, meta_data_columns):
@@ -38,24 +39,10 @@ def create_proband_data(df, meta_data_columns):
 	df.sort_index(inplace=True)
 	df.sort_values(by=['Patient', 'Cycle', 'Cycle.Day'], inplace=True)
 
-	# get patient data length per cycle
-	seq_length = []
-
-	prev_patient = None
-	prev_cycle = None
-
-	for index, row in df.iterrows():
-		if index != prev_patient or row['Cycle'] != prev_cycle:
-			seq_length.append(1)
-		else:
-			seq_length[-1] += 1
-
-		prev_patient = index
-		prev_cycle = row['Cycle']
-
-	seq_length = torch.tensor(np.array(seq_length))
 
 	# create patient data as tensors
+	day = torch.tensor(np.vstack(df['Cycle.Day'].values).astype(np.float32))
+	endo = torch.tensor(np.vstack(df['Endo.Case.Control'].values).astype(np.float32))
 	meta_data = torch.tensor(np.vstack(df[['Cycle.Day', 'Endo.Case.Control']].values).astype(np.float32))
 	X = torch.tensor(np.vstack(df.iloc[:, len(meta_data_columns):].values).astype(np.float32))
 
@@ -63,8 +50,8 @@ def create_proband_data(df, meta_data_columns):
 	# create ProbandData objects
 	# Create Proband data
 	data = []
-	for i in range(len(seq_length)):
-		data.append(ProbandData(day=df['Cycle.Day'], endo=df['Endo.Case.Control'], meta_data=meta_data[i: i + seq_length[i]], seq_length=seq_length[i], X=X[i: i + seq_length[i]]))
+	for i in range(len(day)):
+		data.append(proband_data(day=day[i], endo=endo[i], meta_data=meta_data[i], X=X[i]))
 
 
 	return ProbandDataset(data)

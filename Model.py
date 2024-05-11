@@ -14,14 +14,13 @@ import Dataset, LogNorm, Normal
 NUM_STATES = 5
 
 class Model():
-	def __init__(self, logger, save_dir, normalization, shift, model_name, proband_data, X, Z):
+	def __init__(self, logger, save_dir, normalization, shift, model_name, proband_data, Z):
 		self.logger = logger
 		self.save_dir = save_dir
 		self.normalization = normalization
 		self.shift = shift
 		self.model_name = model_name
 		self.proband_data = proband_data
-		self.X = X
 		self.Z = Z
 
 		self.num_states = NUM_STATES
@@ -49,7 +48,7 @@ class Model():
 		self.guide = pyro.infer.autoguide.AutoDelta(poutine.block(self.model.model, expose_fn=self.hmm_expose))
 
 
-	def train(self, num_iterations=1000, lr=1e-4, clip_norm=5.0, lrd=0.999):
+	def train(self, num_iterations=1000, lr=1e-4, clip_norm=5.0, lrd=0.999, batch_size=1):
 		pyro.clear_param_store()
 		model_path = f'{self.save_dir}{self.normalization}_params'
 		print("Training model, best model will be saved in ", model_path)
@@ -60,19 +59,23 @@ class Model():
 		running_loss = 1e26
 
 		for j in range(num_iterations):
-			loss = svi.step(self.proband_data, self.Z, self.X) / (len(self.X)*self.X.shape[1])
+			for data_batch in self.proband_data:
+				X_batch = data_batch['X']
+				loss = svi.step(data_batch, self.Z, X_batch) / (X_batch.shape[0] * X_batch.shape[1])
+
+				# save best model
+				if loss < running_loss:
+					running_loss = loss
+					pyro.get_param_store().save(model_path)
+				losses.append(loss)
+
 			if j % 100 == 0:
 				print("[iteration %04d] loss: %.4f" % (j + 1, loss))
 
 				S = pyro.param("AutoDelta.S").detach()
-				print("log prob:", self.model.log_probability(pyro.param("AutoDelta.cell_prob").detach(), self.proband_data, self.Z, self.X, S=S)[0] \
-		  				/ (self.X.shape[0] * self.X.shape[1]))
+				print("log prob:", self.model.log_probability(cell_prob=pyro.param("AutoDelta.cell_prob").detach(), data=data_batch, Z_dist=self.Z, X=X_batch, S=S)[0] / (X_batch.shape[0] * X_batch.shape[1]))
 
-			# save best model
-			if loss < running_loss:
-				running_loss = loss
-				pyro.get_param_store().save(model_path)
-			losses.append(loss)
+		self.losses = losses
 
 		return svi, losses
 
@@ -84,7 +87,9 @@ class Model():
 		# save the cell fractions
 		cell_fractions.to_csv(f'{self.save_dir}cell_prob_{self.normalization}.csv')
 
-		ax = sns.heatmap(cell_fractions, cmap = 'coolwarm', linewidth=0, yticklabels=True)
+		# plot the cell fractions
+		plt.clf()
+		ax = sns.heatmap(cell_fractions, cmap = 'coolwarm', linewidth=0, yticklabels=True, vmin=0, vmax=1)
 		ax.set_xlabel('States')
 		ax.set_ylabel('Clusters')
 		plt.title("Fraction of cell for each state ")
@@ -96,7 +101,19 @@ class Model():
 	def save_log_prob(self):
 		S = pyro.param("AutoDelta.S").detach()
 		cell_prob = pyro.param("AutoDelta.cell_prob").detach()
-		log_prob = self.model.log_probability(cell_prob, self.proband_data, self.Z, self.X, S=S)[0] \
-		  				/ (self.X.shape[0] * self.X.shape[1])
+		log_prob = 0
 
-		self.logger.log(f"Log prob: {log_prob}")
+		for data_batch in self.proband_data:
+			X_batch = data_batch['X']
+			log_prob += self.model.log_probability(cell_prob=cell_prob, data=data_batch, Z_dist=self.Z, X=X_batch, S=S)[0] / (X_batch.shape[0] * X_batch.shape[1])
+
+
+		self.logger.log(f"Log prob: {log_prob / len(self.proband_data)}")
+
+	def plot_losses(self):
+		plt.clf()
+		plt.plot(self.losses)
+		plt.xlabel('Iterations')
+		plt.ylabel('Loss')
+		plt.title('Loss over iterations')
+		plt.savefig(f'{self.save_dir}{self.normalization}_loss.png', dpi=300, bbox_inches="tight")

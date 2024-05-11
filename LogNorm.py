@@ -40,20 +40,16 @@ class LogNorm(nn.Module):
 
 		mu, sigma = self.calculate_mu_sigma(Z_dist, cell_prob)
 
-		sum_length = 0
-		for p in pyro.plate("patients", len(data)):
-			patient_data_length = data[p].seq_length
-			patient_data_day = data[p].day
-			patient_data_endo = data[p].endo
+		for s in pyro.plate("samples", X.shape[0]):
+			patient_data_day = data['day']
+			patient_data_endo = data['endo']
 
-			for t in pyro.markov((range(patient_data_length))):
-				state = self.dayToState(patient_data_day[t], patient_data_endo[t])
-				if self.shift:
-					pyro.sample("X_{}_{}".format(t, p), pyro.distributions.Normal(mu[state] - S, sigma[state]).to_event(1), obs=(X[sum_length + t]) if X is not None else None)
-				else:
-					pyro.sample("X_{}_{}".format(t, p), pyro.distributions.Normal(mu[state], sigma[state]).to_event(1), obs=(X[sum_length + t]) if X is not None else None)
+			state = self.dayToState(patient_data_day[s], patient_data_endo[s])
+			if self.shift:
+				pyro.sample("X_{}".format(s), pyro.distributions.Normal(mu[state] - S, sigma[state]).to_event(1), obs=(X[s]) if X is not None else None)
+			else:
+				pyro.sample("X_{}_{}".format(s), pyro.distributions.Normal(mu[state], sigma[state]).to_event(1), obs=(X[s]) if X is not None else None)
 
-			sum_length += patient_data_length
 
 	def dayToState(self, day, endo=None):
 		return int(day - self.min_days)
@@ -113,23 +109,18 @@ class LogNorm(nn.Module):
 			S = 0
 
 		log_prob = 0
-		sum_length = 0
 		prob_samples = []
 
 		mu, sigma = self.calculate_mu_sigma(Z_dist, cell_prob)
 
-		for p in range(len(data)):
-			patient_data_length = data[p].seq_length
-			patient_data_day = data[p].day
-			patient_data_endo = data[p].endo
+		for s in range(X.shape[0]):
+			patient_data_day = data['day']
+			patient_data_endo = data['endo']
 
-			for t in range(patient_data_length):
-				state = self.dayToState(patient_data_day[t], patient_data_endo[t])
-				prob = pyro.distributions.Normal(mu[state] - S, sigma[state]).log_prob(X[sum_length + t])
-				log_prob += prob.sum()
-				prob_samples.append(prob)
-
-			sum_length += patient_data_length
+			state = self.dayToState(patient_data_day[s], patient_data_endo[s])
+			prob = pyro.distributions.Normal(mu[state] - S, sigma[state]).log_prob(X[s])
+			log_prob += prob.sum()
+			prob_samples.append(prob)
 
 		return log_prob, torch.stack(prob_samples)
 

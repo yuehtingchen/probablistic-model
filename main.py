@@ -21,10 +21,14 @@ def main():
     parser.add_argument("--reference_data_path", type=str, help="Path to reference data file, without the _mean.csv or _std.csv suffix, and with _ln suffix if running with lognorm model", required=True)
     parser.add_argument("--switch", help="Whether to use data represented in switches", action="store_true")
     parser.add_argument("--model", type=str, help="Model to use", default="Normal", required=True)
+    parser.add_argument("--batch_size", type=int, help="Batch size", default=829)
 
     args = parser.parse_args()
 
     print(f"Running model: {args.model}, switch: {args.switch}, shift: {args.shift}")
+
+    # set random seed
+    np.random.seed(43)
 
     # read in the data
     filename = args.data_path + '_switch.csv' if args.switch else args.data_path  + '_gene.csv'
@@ -53,6 +57,10 @@ def main():
 
 	# create logger
     logger = Output.Logger(save_dir, normalization)
+    # log model params
+    logger.log(f"Model: {args.model}\n Switch: {args.switch}\n Shift: {args.shift}\n")
+    logger.log(f"Data path: {args.data_path}\n Reference data path: {args.reference_data_path}\n")
+    logger.log(f"Meta data columns: {meta_data_columns}\n")
 
     # load reference data
     reference_path = args.reference_data_path
@@ -67,12 +75,24 @@ def main():
 
 
 	# ensure cluster and proband data have the same genes
+    if clusters_mean.columns.all() != proband_data.columns.all():
+        # extract metadata columns
+        meta_data = proband_data[meta_data_columns]
+
+        overlap = clusters_mean.columns.intersection(proband_data.columns)
+        clusters_mean = clusters_mean[overlap]
+        clusters_std = clusters_std[overlap]
+        proband_data = proband_data[overlap]
+
+        # add metadata columns back
+        proband_data = pd.concat([meta_data, proband_data], axis=1)
     assert clusters_mean.columns.all() == proband_data.columns.all()
 
 	# create the proband data
-    proband_data = Dataset.create_proband_data(proband_data, meta_data_columns)
-    X = torch.cat([d.X for d in proband_data])
-    print("Created proband data with shape: ", X.shape)
+    dataset = Dataset.create_proband_data(proband_data, meta_data_columns)
+    # shuffle the data
+    data_loader = torch.utils.data.DataLoader(dataset, batch_size=args.batch_size, shuffle=True)
+    X = torch.cat([d['X'] for d in data_loader])
 
 
 	# create the reference data
@@ -95,9 +115,9 @@ def main():
     Output.plot_exp_cluster(X, Z['mu'], f"{save_dir}{normalization}_mean_exp.png")
 
 	# create the model
-    model = Model.Model(logger, save_dir, normalization, args.shift, args.model, proband_data, X, Z)
+    model = Model.Model(logger, save_dir, normalization, args.shift, args.model, data_loader, Z)
     model.init_model()
-    model.train(num_iterations=1000, lr=0.02, clip_norm=20.0, lrd=0.999)
+    model.train(num_iterations=1000, lr=1e-2, clip_norm=20.0, lrd=0.999, batch_size=args.batch_size)
 
 	# save model results
     model.plot_losses()
