@@ -94,18 +94,13 @@ def main():
 	# plot cluster and X
     Output.plot_exp_cluster(X, Z['mu'], f"{save_dir}{normalization}_mean_exp.png")
 
-	# shift data by 10 if not shifting in model
-    if not args.shift:
-        X = X + 10
-        Z['mu'] = Z['mu'] + 10
-
-
 	# create the model
     model = Model.Model(logger, save_dir, normalization, args.shift, args.model, proband_data, X, Z)
     model.init_model()
-    model.train(num_iterations=500, lr=0.05, clip_norm=20.0, lrd=0.999)
+    model.train(num_iterations=1000, lr=0.02, clip_norm=20.0, lrd=0.999)
 
 	# save model results
+    model.plot_losses()
     model.save_clusters()
     model.save_log_prob()
 
