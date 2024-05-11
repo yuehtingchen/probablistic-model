@@ -48,7 +48,7 @@ class LogNorm(nn.Module):
 			if self.shift:
 				pyro.sample("X_{}".format(s), pyro.distributions.Normal(mu[state] - S, sigma[state]).to_event(1), obs=(X[s]) if X is not None else None)
 			else:
-				pyro.sample("X_{}_{}".format(s), pyro.distributions.Normal(mu[state], sigma[state]).to_event(1), obs=(X[s]) if X is not None else None)
+				pyro.sample("X_{}".format(s), pyro.distributions.Normal(mu[state], sigma[state]).to_event(1), obs=(X[s]) if X is not None else None)
 
 
 	def dayToState(self, day, endo=None):

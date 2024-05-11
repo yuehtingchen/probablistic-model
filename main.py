@@ -17,7 +17,7 @@ def main():
     parser.add_argument("--data_path", type=str, help="Path to proband data file, will be concatenated with switch param", default="data/exp_metadata_cleaned_js")
     parser.add_argument("--meta_data_columns", type=str, nargs='+', help="Columns to include in the meta data tensor", required=True)
     parser.add_argument("--output_path", type=str, help="Path to save the processed data", default="results/")
-    parser.add_argument("--shift", type=bool, help="Whether to shift the data", default=True)
+    parser.add_argument("--shift", help="Whether to shift the data", action="store_true")
     parser.add_argument("--reference_data_path", type=str, help="Path to reference data file, without the _mean.csv or _std.csv suffix, and with _ln suffix if running with lognorm model", required=True)
     parser.add_argument("--switch", help="Whether to use data represented in switches", action="store_true")
     parser.add_argument("--model", type=str, help="Model to use", default="Normal", required=True)
@@ -117,7 +117,7 @@ def main():
 	# create the model
     model = Model.Model(logger, save_dir, normalization, args.shift, args.model, data_loader, Z)
     model.init_model()
-    model.train(num_iterations=1000, lr=1e-2, clip_norm=20.0, lrd=0.999, batch_size=args.batch_size)
+    model.train(num_iterations=300, lr=0.01, clip_norm=20.0, lrd=0.999, batch_size=args.batch_size)
 
 	# save model results
     model.plot_losses()
