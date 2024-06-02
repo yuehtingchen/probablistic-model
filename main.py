@@ -117,7 +117,7 @@ def main():
 	# create the model
     model = Model.Model(logger, save_dir, normalization, args.shift, args.model, data_loader, Z)
     model.init_model()
-    model.train(num_iterations=300, lr=0.01, clip_norm=20.0, lrd=0.999, batch_size=args.batch_size)
+    model.train(num_iterations=1000, lr=0.01, clip_norm=20.0, lrd=0.999, batch_size=args.batch_size)
 
 	# save model results
     model.plot_losses()
