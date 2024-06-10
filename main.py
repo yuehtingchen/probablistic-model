@@ -129,7 +129,7 @@ def main():
 
 	# save model results
     model.plot_losses()
-    model.save_clusters()
+    model.save_clusters(index=clusters_mean.index)
     model.save_log_prob()
 
     logger.close()

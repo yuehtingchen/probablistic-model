@@ -31,12 +31,14 @@ class Model():
 		return msg["name"].startswith("cell_prob") or msg["name"].startswith("S") or msg["name"].startswith("K")
 
 	def init_model(self):
-		if self.model_name == "Normal":
-			self.model = Normal.NormalMM(num_states=self.num_states, num_cell_types=self.num_cell_types, num_genes=self.num_genes, shift=self.shift)
-		elif self.model_name == "LogNorm":
-			self.model = LogNorm.LogNorm(num_states=self.num_states, num_cell_types=self.num_cell_types, num_genes=self.num_genes, shift=self.shift)
-		else:
-			raise ValueError("Invalid model name")
+		self.model = Normal.NormalMM(num_states=self.num_states, num_cell_types=self.num_cell_types, num_genes=self.num_genes, shift=self.shift)
+
+		self.alt_model = LogNorm.LogNorm(num_states=self.num_states, num_cell_types=self.num_cell_types, num_genes=self.num_genes, shift=self.shift)
+
+		if self.model_name == "LogNorm":
+			tmp = self.model
+			self.model = self.alt_model
+			self.alt_model = tmp
 
 		print("Initialize ", self.model, " model:")
 		print("  num_states: ", self.num_states)
@@ -87,10 +89,13 @@ class Model():
 
 		return svi, losses
 
-	def save_clusters(self):
+	def save_clusters(self, index):
 		# get the cell probabilities
 		cell_prob = pyro.param("AutoDelta.cell_prob").detach().numpy()
 		cell_fractions = pd.DataFrame(cell_prob).T
+		cell_fractions.index = index
+		reorder_list = [f'SEACell-{i}' for i in range(0, 15)]
+		cell_fractions = cell_fractions.reindex(reorder_list)
 
 		# save the cell fractions
 		cell_fractions.to_csv(f'{self.save_dir}cell_prob_{self.normalization}.csv')
@@ -117,6 +122,18 @@ class Model():
 
 
 		self.logger.log(f"Log prob: {log_prob / len(self.proband_data)}")
+
+		# calculate alt model log prob
+		log_prob = 0
+
+		for data_batch in self.proband_data:
+			X_batch = data_batch['X']
+			log_prob += self.alt_model.log_probability(cell_prob=cell_prob, data=data_batch, Z_dist=self.Z, X=X_batch, S=S)[0] / (X_batch.shape[0] * X_batch.shape[1])
+
+		if self.model_name == "Normal":
+			self.logger.log(f"LogNorm Model Log prob: {log_prob / len(self.proband_data)}")
+		else:
+			self.logger.log(f"Normal Model Log prob: {log_prob / len(self.proband_data)}")
 
 	def plot_losses(self):
 		plt.clf()
