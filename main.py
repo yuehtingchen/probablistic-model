@@ -14,11 +14,12 @@ import Dataset, Output, Model
 def main():
 	# add argument parser
     parser = ArgumentParser()
-    parser.add_argument("--data_path", type=str, help="Path to proband data file, will be concatenated with switch param", default="data/exp_metadata_cleaned_js")
+    parser.add_argument("--data_path", type=str, help="Path to proband data file, will be concatenated with _gene.csv or _switch.csv if param is gene or switch respectively", default="data/exp_metadata_cleaned_js")
     parser.add_argument("--meta_data_columns", type=str, nargs='+', help="Columns to include in the meta data tensor", required=True)
     parser.add_argument("--output_path", type=str, help="Path to save the processed data", default="results/")
     parser.add_argument("--shift", help="Whether to shift the data", action="store_true")
-    parser.add_argument("--reference_data_path", type=str, help="Path to reference data file, without the _mean.csv or _std.csv suffix, and with _ln suffix if running with lognorm model", required=True)
+    parser.add_argument("--reference_data_path", type=str, help="Path to single cell reference data file, will be concatenated with _gene.csv or _switch.csv if param is gene or switch respectively", required=True)
+    parser.add_argument("--reference_cluster_assignment_path", type=str, help="Path to single cell reference data cluster assignments, first column cell identifier, second column cluster name. Will be concatenated with _gene.csv or _switch.csv if param is gene or switch respectively", required=True)
     parser.add_argument("--switch", help="Whether to use data represented in switches", action="store_true")
     parser.add_argument("--model", type=str, help="Model to use", default="Normal", required=True)
     parser.add_argument("--batch_size", type=int, help="Batch size", default=829)
@@ -63,16 +64,22 @@ def main():
     logger.log(f"Meta data columns: {meta_data_columns}\n")
 
     # load reference data
-    reference_path = args.reference_data_path
-    if args.model == "LogNorm":
-        reference_path += "_ln"
     if args.switch:
-        reference_path += "_switch"
+        reference_path = args.reference_data_path + "_switch.csv"
+        reference_assignment_path = args.reference_cluster_assignment_path + "_switch.csv"
+    else:
+        reference_path = args.reference_data_path + "_gene.csv"
+        reference_assignment_path = args.reference_cluster_assignment_path + "_switch.csv"
 
-    clusters_mean = pd.read_csv(reference_path + "_mean.csv", index_col=0)
-    clusters_std = pd.read_csv(reference_path + "_std.csv", index_col=0)
-    print("Loaded reference data from: ", reference_path + "_mean.csv", reference_path + "_std.csv")
+    ref_df = pd.read_csv(reference_path, index_col=0, delimiter="\t").T
+    ref_assign_df = pd.read_csv(reference_assignment_path, delimiter="\t", index_col=0)
 
+    if args.model == "LogNorm":
+        # convert to natural log
+        ref_df = np.log(2 ** (ref_df - 10)) + 10
+
+    clusters_mean = ref_df.groupby(ref_assign_df['SEACell']).mean()
+    clusters_std = ref_df.groupby(ref_assign_df['SEACell']).std()
 
 	# ensure cluster and proband data have the same genes
     if clusters_mean.columns.all() != proband_data.columns.all():

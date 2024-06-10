@@ -1,10 +1,12 @@
 # python
 __pycache__/
+venv/
 
 # data
 data/
 plots/
 results/
+figures/
 
 # jupyter
 .ipynb_checkpoints/
