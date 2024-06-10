@@ -23,6 +23,7 @@ def main():
     parser.add_argument("--switch", help="Whether to use data represented in switches", action="store_true")
     parser.add_argument("--model", type=str, help="Model to use", default="Normal", required=True)
     parser.add_argument("--batch_size", type=int, help="Batch size", default=829)
+    parser.add_argument("--error", type=float, help="Error threshold", default=1e-5, required=False)
 
     args = parser.parse_args()
 
@@ -124,7 +125,7 @@ def main():
 	# create the model
     model = Model.Model(logger, save_dir, normalization, args.shift, args.model, data_loader, Z)
     model.init_model()
-    model.train(num_iterations=1000, lr=0.01, clip_norm=20.0, lrd=0.999, batch_size=args.batch_size)
+    model.train(error=args.error, lr=0.01, clip_norm=20.0, lrd=0.999, batch_size=args.batch_size)
 
 	# save model results
     model.plot_losses()

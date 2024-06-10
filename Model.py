@@ -48,7 +48,7 @@ class Model():
 		self.guide = pyro.infer.autoguide.AutoDelta(poutine.block(self.model.model, expose_fn=self.hmm_expose))
 
 
-	def train(self, num_iterations=1000, lr=1e-4, clip_norm=5.0, lrd=0.999, batch_size=1):
+	def train(self, error=1e-5, lr=1e-4, clip_norm=5.0, lrd=0.999, batch_size=1):
 		pyro.clear_param_store()
 		model_path = f'{self.save_dir}{self.normalization}_params'
 		print("Training model, best model will be saved in ", model_path)
@@ -57,8 +57,10 @@ class Model():
 		svi = SVI(self.model.model, self.guide, optimizer, loss=Trace_ELBO())
 		losses = []
 		running_loss = 1e26
+		prev_logprob = 0
+		j = 0
 
-		for j in range(num_iterations):
+		while True:
 			for data_batch in self.proband_data:
 				X_batch = data_batch['X']
 				loss = svi.step(data_batch, self.Z, X_batch) / (X_batch.shape[0] * X_batch.shape[1])
@@ -73,7 +75,13 @@ class Model():
 				print("[iteration %04d] loss: %.4f" % (j + 1, loss))
 
 				S = pyro.param("AutoDelta.S").detach()
-				print("log prob:", self.model.log_probability(cell_prob=pyro.param("AutoDelta.cell_prob").detach(), data=data_batch, Z_dist=self.Z, X=X_batch, S=S)[0] / (X_batch.shape[0] * X_batch.shape[1]))
+				log_prob = self.model.log_probability(cell_prob=pyro.param("AutoDelta.cell_prob").detach(), data=data_batch, Z_dist=self.Z, X=X_batch, S=S)[0] / (X_batch.shape[0] * X_batch.shape[1])
+				print("log prob:", log_prob)
+
+				if abs(log_prob - prev_logprob) < error:
+					break
+				prev_logprob = log_prob
+			j += 1
 
 		self.losses = losses
 
