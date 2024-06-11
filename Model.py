@@ -50,7 +50,7 @@ class Model():
 		self.guide = pyro.infer.autoguide.AutoDelta(poutine.block(self.model.model, expose_fn=self.hmm_expose))
 
 
-	def train(self, error=1e-5, lr=1e-4, clip_norm=5.0, lrd=0.999, batch_size=1):
+	def train(self, error=1e-4, lr=1e-4, clip_norm=5.0, lrd=0.999, batch_size=1):
 		pyro.clear_param_store()
 		model_path = f'{self.save_dir}{self.normalization}_params'
 		print("Training model, best model will be saved in ", model_path)

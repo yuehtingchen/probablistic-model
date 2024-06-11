@@ -23,7 +23,7 @@ def main():
     parser.add_argument("--switch", help="Whether to use data represented in switches", action="store_true")
     parser.add_argument("--model", type=str, help="Model to use", default="Normal", required=True)
     parser.add_argument("--batch_size", type=int, help="Batch size", default=829)
-    parser.add_argument("--error", type=float, help="Error threshold", default=1e-5, required=False)
+    parser.add_argument("--error", type=float, help="Error threshold", default=1e-4, required=False)
 
     args = parser.parse_args()
 
