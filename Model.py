@@ -131,6 +131,37 @@ class Model():
 
 		self.logger.log(f"Log prob: {log_prob.mean()}")
 
+	# approximate Akaike Information Criterion
+	def save_AIC(self):
+		S = pyro.param("AutoDelta.S").detach() if self.shift else 0
+		cell_prob = pyro.param("AutoDelta.cell_prob").detach()
+		log_prob = self.log_prob(cell_prob, S)
+
+		# get number of parameters
+		k = cell_prob.shape[0] * cell_prob.shape[1] + 1
+
+		# calculate AIC
+		AIC = -2 * log_prob.mean() + 2 * k
+
+		self.logger.log(f'Number of parameters: {k}')
+		self.logger.log(f'AIC: {AIC}')
+
+	# approximate Deviance Information Criterion
+	def save_DIC(self):
+		predict = pyro.infer.Predictive(self.model.model, guide=self.guide, num_samples=100, return_sites=("cell_prob", "S"))
+		for data_batch in self.proband_data:
+			samples = {k: v.detach().cpu().numpy() for k, v in predict.forward(data_batch, self.Z, data_batch['X']).items()}
+
+		pi_theta = np.array([self.log_prob(cell_prob, S) for cell_prob, S in zip(samples['cell_prob'], samples['S'])])
+		D_bar = -2 * pi_theta.mean(axis=0)
+
+		pi_theta_star = self.log_prob(samples['cell_prob'].mean(axis=0), samples['S'].mean(axis=0))
+		D_theta_star = -2 * pi_theta_star
+		self.logger.log(f'expected deviance: {D_bar}')
+		self.logger.log(f'effective number of parameters: {D_bar - D_theta_star}')
+		self.logger.log(f'DIC: {D_bar - D_theta_star + D_bar}')
+
+
 	def plot_losses(self):
 		plt.clf()
 		plt.plot(self.losses)

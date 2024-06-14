@@ -131,6 +131,8 @@ def main():
     model.plot_losses()
     model.save_clusters(index=clusters_mean.index)
     model.save_log_prob()
+    model.save_AIC()
+    model.save_DIC()
 
     logger.close()
 
