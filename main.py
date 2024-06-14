@@ -24,6 +24,7 @@ def main():
     parser.add_argument("--model", type=str, help="Model to use", default="Normal", required=True)
     parser.add_argument("--batch_size", type=int, help="Batch size", default=829)
     parser.add_argument("--error", type=float, help="Error threshold", default=1e-4, required=False)
+    parser.add_argument("--mcmc", help="Whether to train with mcmc or default to SVI", action="store_true")
 
     args = parser.parse_args()
 
@@ -125,12 +126,24 @@ def main():
 	# create the model
     model = Model.Model(logger, save_dir, normalization, args.shift, args.model, data_loader, Z)
     model.init_model()
-    model.train(error=args.error, lr=0.01, clip_norm=20.0, lrd=0.999, batch_size=args.batch_size)
 
-	# save model results
-    model.plot_losses()
-    model.save_clusters(index=clusters_mean.index)
-    model.save_log_prob()
+    if args.mcmc:
+        # train the model with mcmc
+        mcmc = model.train_mcmc(num_samples=100, warmup_steps=100)
+
+        # save model results
+        model.mcmc_save_clusters(mcmc, index=clusters_mean.index)
+        model.mcmc_save_log_prob(mcmc)
+        model.mcmc_DIC(mcmc)
+
+    else:
+        model.train(error=args.error, lr=0.01, clip_norm=20.0, lrd=0.999, batch_size=args.batch_size)
+
+        # save model results
+        model.plot_losses()
+        model.save_clusters(index=clusters_mean.index)
+        model.save_log_prob()
+        model.svi_DIC()
 
     logger.close()
 

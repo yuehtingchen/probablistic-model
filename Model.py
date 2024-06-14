@@ -1,4 +1,4 @@
-from pyro.infer import SVI, Trace_ELBO
+from pyro.infer import SVI, Trace_ELBO, MCMC, NUTS
 from pyro.optim import ClippedAdam
 import pyro
 from pyro import poutine
@@ -7,6 +7,8 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import numpy as np
 import pandas as pd
+import dill
+import torch
 
 import Dataset, LogNorm, Normal
 
@@ -89,6 +91,74 @@ class Model():
 
 		return svi, losses
 
+	def save_model(self, model, filename):
+		with open(filename, 'wb') as f:
+			dill.dump(model, f)
+
+	def train_mcmc(self, num_samples=1000, warmup_steps=1000):
+		model_path = f'{self.save_dir}{self.normalization}_params'
+		print("Training model with MCMC, best model will be saved in ", model_path)
+
+		pyro.clear_param_store()
+		for data_batch in self.proband_data:
+			mcmc = MCMC(NUTS(self.model.model), num_samples=num_samples, warmup_steps=warmup_steps)
+			mcmc.run(data_batch, self.Z, data_batch['X'])
+
+		self.save_model(mcmc, model_path)
+
+		return mcmc
+
+	def log_prob(self, cell_prob):
+		# transform cell_prob to torch
+		cell_prob = torch.tensor(cell_prob, dtype=torch.float32)
+
+		log_prob = []
+		for data_batch in self.proband_data:
+			X_batch = data_batch['X']
+			log_prob.append(self.model.log_probability(cell_prob=cell_prob, data=data_batch, Z_dist=self.Z, X=X_batch, S=0)[0] / (X_batch.shape[0] * X_batch.shape[1]))
+
+		return np.array(log_prob)
+
+	def mcmc_save_log_prob(self, mcmc):
+		samples = {k: v.detach().cpu().numpy() for k, v in mcmc.get_samples().items()}
+		cell_prob = samples['cell_prob'].mean(axis=0)
+		log_prob = self.log_prob(cell_prob).mean()
+
+		self.logger.log(f"Log prob: {log_prob}")
+
+	def mcmc_save_clusters(self, mcmc, index):
+		samples = {k: v.detach().cpu().numpy() for k, v in mcmc.get_samples().items()}
+		cell_fractions = pd.DataFrame(samples['cell_prob'].mean(axis=0)).T
+		cell_fractions.index = index
+		reorder_list = [f'SEACell-{i}' for i in range(0, 15)]
+		cell_fractions = cell_fractions.reindex(reorder_list)
+
+		# save the cell fractions
+		cell_fractions.to_csv(f'{self.save_dir}cell_prob_{self.normalization}.csv')
+
+		# plot the cell fractions
+		plt.clf()
+		ax = sns.heatmap(cell_fractions, cmap = 'coolwarm', linewidth=0, yticklabels=True, vmin=0, vmax=1)
+		ax.set_xlabel('States')
+		ax.set_ylabel('Clusters')
+		plt.title("Fraction of cell for each state ")
+
+		title = f'{self.save_dir}{self.normalization}_cell_fractions.png'
+		print("Saving plot to ", title)
+		plt.savefig(title, dpi=300, bbox_inches="tight")
+
+	def mcmc_DIC(self, mcmc):
+		samples = {k: v.detach().cpu().numpy() for k, v in mcmc.get_samples().items()}
+
+		pi_theta = np.array([self.log_prob(cell_prob) for cell_prob in samples['cell_prob']])
+		D_bar = -2 * pi_theta.mean(axis=0)
+
+		pi_theta_star = self.log_prob(samples['cell_prob'].mean(axis=0))
+		D_theta_star = -2 * pi_theta_star
+		print('expected deviance:', D_bar)
+		print('effective number of parameters:', D_bar - D_theta_star)
+		print('DIC:', D_bar - D_theta_star + D_bar)
+
 	def save_clusters(self, index):
 		# get the cell probabilities
 		cell_prob = pyro.param("AutoDelta.cell_prob").detach().numpy()
@@ -123,17 +193,19 @@ class Model():
 
 		self.logger.log(f"Log prob: {log_prob / len(self.proband_data)}")
 
-		# calculate alt model log prob
-		log_prob = 0
-
+	def svi_DIC(self):
+		predict = pyro.infer.Predictive(self.model.model, guide=self.guide, num_samples=100)
 		for data_batch in self.proband_data:
-			X_batch = data_batch['X']
-			log_prob += self.alt_model.log_probability(cell_prob=cell_prob, data=data_batch, Z_dist=self.Z, X=X_batch, S=S)[0] / (X_batch.shape[0] * X_batch.shape[1])
+			samples = {k: v.detach().cpu().numpy() for k, v in predict.forward(data_batch, self.Z, data_batch['X']).items()}
 
-		if self.model_name == "Normal":
-			self.logger.log(f"LogNorm Model Log prob: {log_prob / len(self.proband_data)}")
-		else:
-			self.logger.log(f"Normal Model Log prob: {log_prob / len(self.proband_data)}")
+		pi_theta = np.array([self.log_prob(cell_prob) for cell_prob in samples['cell_prob']])
+		D_bar = -2 * pi_theta.mean(axis=0)
+
+		pi_theta_star = self.log_prob(samples['cell_prob'].mean(axis=0))
+		D_theta_star = -2 * pi_theta_star
+		print('expected deviance:', D_bar)
+		print('effective number of parameters:', D_bar - D_theta_star)
+		print('DIC:', D_bar - D_theta_star + D_bar)
 
 	def plot_losses(self):
 		plt.clf()
