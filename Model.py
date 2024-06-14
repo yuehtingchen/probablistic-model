@@ -3,6 +3,7 @@ from pyro.optim import ClippedAdam
 import pyro
 from pyro import poutine
 
+import torch
 import matplotlib.pyplot as plt
 import seaborn as sns
 import numpy as np
@@ -111,29 +112,24 @@ class Model():
 		print("Saving plot to ", title)
 		plt.savefig(title, dpi=300, bbox_inches="tight")
 
+	def log_prob(self, cell_prob, S):
+		# transform cell_prob to torch
+		if not isinstance(cell_prob, torch.Tensor):
+			cell_prob = torch.tensor(cell_prob, dtype=torch.float32)
+
+		log_prob = []
+		for data_batch in self.proband_data:
+			X_batch = data_batch['X']
+			log_prob.append(self.model.log_probability(cell_prob=cell_prob, data=data_batch, Z_dist=self.Z, X=X_batch, S=S)[0] / (X_batch.shape[0] * X_batch.shape[1]))
+
+		return np.array(log_prob)
+
 	def save_log_prob(self):
-		S = pyro.param("AutoDelta.S").detach()
+		S = pyro.param("AutoDelta.S").detach() if self.shift else 0
 		cell_prob = pyro.param("AutoDelta.cell_prob").detach()
-		log_prob = 0
+		log_prob = self.log_prob(cell_prob, S)
 
-		for data_batch in self.proband_data:
-			X_batch = data_batch['X']
-			log_prob += self.model.log_probability(cell_prob=cell_prob, data=data_batch, Z_dist=self.Z, X=X_batch, S=S)[0] / (X_batch.shape[0] * X_batch.shape[1])
-
-
-		self.logger.log(f"Log prob: {log_prob / len(self.proband_data)}")
-
-		# calculate alt model log prob
-		log_prob = 0
-
-		for data_batch in self.proband_data:
-			X_batch = data_batch['X']
-			log_prob += self.alt_model.log_probability(cell_prob=cell_prob, data=data_batch, Z_dist=self.Z, X=X_batch, S=S)[0] / (X_batch.shape[0] * X_batch.shape[1])
-
-		if self.model_name == "Normal":
-			self.logger.log(f"LogNorm Model Log prob: {log_prob / len(self.proband_data)}")
-		else:
-			self.logger.log(f"Normal Model Log prob: {log_prob / len(self.proband_data)}")
+		self.logger.log(f"Log prob: {log_prob.mean()}")
 
 	def plot_losses(self):
 		plt.clf()
