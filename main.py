@@ -132,7 +132,7 @@ def main():
     model.save_clusters(index=clusters_mean.index)
     model.save_log_prob()
     model.save_AIC()
-    model.save_DIC()
+    # model.save_DIC()
 
     logger.close()
 

@@ -95,7 +95,7 @@ class Model():
 		cell_prob = pyro.param("AutoDelta.cell_prob").detach().numpy()
 		cell_fractions = pd.DataFrame(cell_prob).T
 		cell_fractions.index = index
-		reorder_list = [f'SEACell-{i}' for i in range(0, 15)]
+		reorder_list = [f'SEACell-{i}' for i in range(0, len(index))]
 		cell_fractions = cell_fractions.reindex(reorder_list)
 
 		# save the cell fractions
