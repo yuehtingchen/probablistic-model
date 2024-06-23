@@ -43,7 +43,7 @@ def main():
 
     # change js to be in natural log if running lognorm model
     if args.model == "LogNorm":
-        proband_data.iloc[:, len(meta_data_columns):] = np.log(2 ** (proband_data.iloc[:, len(meta_data_columns):].values - 10)) + 10
+        proband_data.iloc[:, len(meta_data_columns):] = np.log(2 ** (proband_data.iloc[:, len(meta_data_columns):].values))
         print("Transformed data to natural log")
 
 	# create file names
@@ -77,7 +77,7 @@ def main():
 
     if args.model == "LogNorm":
         # convert to natural log
-        ref_df = np.log(2 ** (ref_df - 10)) + 10
+        ref_df = np.log(2 ** (ref_df))
 
     clusters_mean = ref_df.groupby(ref_assign_df['SEACell']).mean()
     clusters_std = ref_df.groupby(ref_assign_df['SEACell']).std()
