@@ -83,7 +83,7 @@ def main():
     clusters_std = ref_df.groupby(ref_assign_df['SEACell']).std()
 
 	# ensure cluster and proband data have the same genes
-    if clusters_mean.columns.all() != proband_data.columns.all():
+    if len(clusters_mean.columns ) != len(proband_data.columns[len(meta_data_columns):]) or not (clusters_mean.columns == proband_data.columns[len(meta_data_columns):]).all():
         # extract metadata columns
         meta_data = proband_data[meta_data_columns]
 
@@ -94,7 +94,7 @@ def main():
 
         # add metadata columns back
         proband_data = pd.concat([meta_data, proband_data], axis=1)
-    assert clusters_mean.columns.all() == proband_data.columns.all()
+    assert (clusters_mean.columns == proband_data.columns[len(meta_data_columns):]).all()
 
 	# create the proband data
     dataset = Dataset.create_proband_data(proband_data, meta_data_columns)
