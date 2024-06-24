@@ -5,8 +5,10 @@ venv/
 # data
 data/
 plots/
-results/
+results*/
 figures/
+*archive/
+test/
 
 # jupyter
 .ipynb_checkpoints/
