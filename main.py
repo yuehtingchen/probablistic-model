@@ -59,10 +59,6 @@ def main():
 
 	# create logger
     logger = Output.Logger(save_dir, normalization)
-    # log model params
-    logger.log(f"Model: {args.model}\n Switch: {args.switch}\n Shift: {args.shift}\n")
-    logger.log(f"Data path: {args.data_path}\n Reference data path: {args.reference_data_path}\n")
-    logger.log(f"Meta data columns: {meta_data_columns}\n")
 
     # load reference data
     if args.switch:
@@ -70,7 +66,7 @@ def main():
         reference_assignment_path = args.reference_cluster_assignment_path + "_switch.csv"
     else:
         reference_path = args.reference_data_path + "_gene.csv"
-        reference_assignment_path = args.reference_cluster_assignment_path + "_switch.csv"
+        reference_assignment_path = args.reference_cluster_assignment_path + "_gene.csv"
 
     ref_df = pd.read_csv(reference_path, index_col=0, delimiter="\t").T
     ref_assign_df = pd.read_csv(reference_assignment_path, delimiter="\t", index_col=0)
@@ -94,6 +90,8 @@ def main():
 
         # add metadata columns back
         proband_data = pd.concat([meta_data, proband_data], axis=1)
+
+        print("Cluster and proband data have different genes, overlapping genes extracted, new gene count: ", len(clusters_mean.columns))
     assert (clusters_mean.columns == proband_data.columns[len(meta_data_columns):]).all()
 
 	# create the proband data
@@ -111,6 +109,11 @@ def main():
 
 	# check that clusters with low std have been perturbed
     assert (clusters_mean.loc[clusters_low_std].std(axis=1) < 1e-14).sum() == 0
+
+    # log model params
+    logger.log(f"Model: {args.model}\n Switch: {args.switch}\n Shift: {args.shift}\n")
+    logger.log(f"Data path: {filename}\n Reference data path: {reference_path}\n Reference cluster assignment path: {reference_assignment_path}\n")
+    logger.log(f"Meta data columns: {meta_data_columns}\n")
 
     clusters_corr = clusters_mean.T.corr()
     Z = {
