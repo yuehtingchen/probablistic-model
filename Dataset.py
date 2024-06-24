@@ -15,10 +15,12 @@ class ProbandDataset(Dataset):
 
 
 
-def proband_data(day, endo, meta_data, X=None):
+def proband_data(day, endo, age, birth_control, meta_data, X=None):
 	return dict({
 		'day': day,
 		'endo': endo,
+		'age': age,
+		'birth_control': birth_control,
 		'meta_data': meta_data,
 		'X': X
 	})
@@ -30,6 +32,8 @@ def create_proband_data(df, meta_data_columns):
 	assert 'Cycle' in df.columns
 	assert 'Cycle.Day' in df.columns
 	assert 'Endo.Case.Control' in df.columns
+	assert 'Age.Binned' in df.columns
+	assert 'Birth.Control' in df.columns
 
 	# check that the meta_data_columns are in the dataframe
 	for col in meta_data_columns:
@@ -43,6 +47,8 @@ def create_proband_data(df, meta_data_columns):
 	# create patient data as tensors
 	day = torch.tensor(np.vstack(df['Cycle.Day'].values).astype(np.float32))
 	endo = torch.tensor(np.vstack(df['Endo.Case.Control'].values).astype(np.float32))
+	age = torch.tensor(np.vstack(df['Age.Binned'].values).astype(np.float32))
+	birth_control = torch.tensor(np.vstack(df['Birth.Control'].values).astype(np.float32))
 	meta_data = torch.tensor(np.vstack(df[['Cycle.Day', 'Endo.Case.Control']].values).astype(np.float32))
 	X = torch.tensor(np.vstack(df.iloc[:, len(meta_data_columns):].values).astype(np.float32))
 
@@ -51,7 +57,7 @@ def create_proband_data(df, meta_data_columns):
 	# Create Proband data
 	data = []
 	for i in range(len(day)):
-		data.append(proband_data(day=day[i], endo=endo[i], meta_data=meta_data[i], X=X[i]))
+		data.append(proband_data(day=day[i], endo=endo[i], age=age[i], birth_control=birth_control[i], meta_data=meta_data[i], X=X[i]))
 
 
 	return ProbandDataset(data)
