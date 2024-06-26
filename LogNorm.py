@@ -48,7 +48,7 @@ class LogNorm(nn.Module):
 
 			with pyro.plate("genes_{}".format(s), X.shape[1]):
 				if self.shift:
-					pyro.sample("X_{}".format(s), pyro.distributions.Normal(mu[state] - S, sigma[state]), obs=(X[s]) if X is not None else None)
+					pyro.sample("X_{}".format(s), pyro.distributions.Normal(mu[state] + S, sigma[state]), obs=(X[s]) if X is not None else None)
 				else:
 					pyro.sample("X_{}".format(s), pyro.distributions.Normal(mu[state], sigma[state]), obs=(X[s]) if X is not None else None)
 
@@ -120,7 +120,7 @@ class LogNorm(nn.Module):
 			patient_data_endo = data['endo']
 
 			state = self.dayToState(patient_data_day[s], patient_data_endo[s])
-			prob = pyro.distributions.Normal(mu[state] - S, sigma[state]).log_prob(X[s])
+			prob = pyro.distributions.Normal(mu[state] + S, sigma[state]).log_prob(X[s])
 			log_prob += prob.sum()
 			prob_samples.append(prob)
 

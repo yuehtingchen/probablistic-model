@@ -52,7 +52,7 @@ class NormalMM(nn.Module):
 
 			with pyro.plate(f"genes_{s}", X.shape[1]):
 				if self.shift:
-					pyro.sample(f"X_{s}", pyro.distributions.Normal(mu[state] - S, sigma[state]), obs=X[s] if X is not None else None)
+					pyro.sample(f"X_{s}", pyro.distributions.Normal(mu[state] + S, sigma[state]), obs=X[s] if X is not None else None)
 				else:
 					pyro.sample(f"X_{s}", pyro.distributions.Normal(mu[state], sigma[state]), obs=X[s] if X is not None else None)
 
@@ -82,7 +82,7 @@ class NormalMM(nn.Module):
 
 			state = self.dayToState(patient_data_day[s], patient_data_endo[s])
 
-			prob = pyro.distributions.Normal(mu[state] - S, sigma[state]).log_prob(X[s])
+			prob = pyro.distributions.Normal(mu[state] + S, sigma[state]).log_prob(X[s])
 			log_prob += prob.sum()
 			prob_samples.append(prob)
 
