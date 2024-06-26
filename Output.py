@@ -12,6 +12,14 @@ def plot_exp_cluster(exp, cluster, title):
 	plt.title('Difference between gene expression in clusters and samples')
 	plt.savefig(title, dpi=300, bbox_inches="tight")
 
+
+def plot_cluster_gene_distribution(cluster, title):
+	plt.clf()
+	sns.heatmap(cluster, cmap='viridis')
+	plt.title('Cluster gene distribution')
+	plt.savefig(title, dpi=300, bbox_inches="tight")
+
+
 class Logger():
 	def __init__(self, output_path, normalization):
 		self.output_path = output_path

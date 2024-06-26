@@ -124,6 +124,7 @@ def main():
 
 	# plot cluster and X
     Output.plot_exp_cluster(X, Z['mu'], f"{save_dir}{normalization}_mean_exp.png")
+    Output.plot_cluster_gene_distribution(Z['mu'], f"{save_dir}{normalization}_cluster_gene_distribution.png")
 
 	# create the model
     model = Model.Model(logger, save_dir, normalization, args.shift, args.model, data_loader, Z)
