@@ -139,6 +139,7 @@ class Model():
 
 		# get number of parameters
 		k = cell_prob.shape[0] * cell_prob.shape[1] + 1
+		k += 1 if self.shift else 0
 
 		# calculate AIC
 		AIC = -2 * log_prob.mean() + 2 * k
