@@ -5,6 +5,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 from datetime import date
 from argparse import ArgumentParser
+import pyro
 import os
 
 import Dataset, Output, Model
@@ -24,13 +25,15 @@ def main():
     parser.add_argument("--model", type=str, help="Model to use", default="Normal", required=True)
     parser.add_argument("--batch_size", type=int, help="Batch size", default=829)
     parser.add_argument("--error", type=float, help="Error threshold", default=1e-4, required=False)
+    parser.add_argument("--seed", type=int, help="Random seed", required=False)
 
     args = parser.parse_args()
 
     print(f"Running model: {args.model}, switch: {args.switch}, shift: {args.shift}")
 
-    # set random seed
-    np.random.seed(43)
+    # set random seed if set by user
+    if args.seed:
+        pyro.set_rng_seed(args.seed)
 
     # read in the data
     filename = args.data_path + '_switch.csv' if args.switch else args.data_path  + '_gene.csv'
@@ -111,6 +114,8 @@ def main():
     assert (clusters_mean.loc[clusters_low_std].std(axis=1) < 1e-14).sum() == 0
 
     # log model params
+    if args.seed:
+        logger.log(f"Seed: {args.seed}\n")
     logger.log(f"Model: {args.model}\n Switch: {args.switch}\n Shift: {args.shift}\n")
     logger.log(f"Data path: {filename}\n Reference data path: {reference_path}\n Reference cluster assignment path: {reference_assignment_path}\n")
     logger.log(f"Meta data columns: {meta_data_columns}\n")
@@ -144,7 +149,6 @@ def main():
 
 
 if __name__ == "__main__":
-    np.random.seed(43)
     main()
 
 
