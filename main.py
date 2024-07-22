@@ -26,6 +26,7 @@ def main():
     parser.add_argument("--batch_size", type=int, help="Batch size", default=829)
     parser.add_argument("--error", type=float, help="Error threshold", default=1e-4, required=False)
     parser.add_argument("--seed", type=int, help="Random seed", required=False)
+    parser.add_argument("--cv", help="Whether to use cross validation", action="store_true")
 
     args = parser.parse_args()
 
@@ -99,9 +100,7 @@ def main():
 
 	# create the proband data
     dataset = Dataset.create_proband_data(proband_data, meta_data_columns)
-    # shuffle the data
-    data_loader = torch.utils.data.DataLoader(dataset, batch_size=args.batch_size, shuffle=True)
-    X = torch.cat([d['X'] for d in data_loader])
+    X = torch.cat([d['X'].reshape(1, -1) for d in dataset])
 
 
 	# create the reference data
@@ -132,8 +131,7 @@ def main():
     Output.plot_cluster_gene_distribution(Z['mu'], f"{save_dir}{normalization}_cluster_gene_distribution.png")
 
 	# create the model
-    model = Model.Model(logger, save_dir, normalization, args.shift, args.model, data_loader, Z)
-    model.init_model()
+    model = Model.Model(logger=logger, save_dir=save_dir, normalization=normalization, cross_validation=args.cv, shift=args.shift, model_name=args.model, proband_data=dataset, Z=Z)
     model.train(error=args.error, lr=0.01, clip_norm=20.0, lrd=0.999, batch_size=args.batch_size)
 
 	# save model results
