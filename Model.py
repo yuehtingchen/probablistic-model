@@ -15,6 +15,7 @@ import Dataset, LogNorm, Normal
 
 NUM_STATES = 5
 CV_FOLDS = 5
+MAX_ITER = 2000
 
 class Model():
 	def __init__(self, logger, save_dir, normalization, shift, model_name, cross_validation, proband_data, Z):
@@ -78,7 +79,7 @@ class Model():
 		prev_logprob = 0
 		j = 0
 
-		while True:
+		while j < MAX_ITER:
 			for data_batch in data_loader:
 				X_batch = data_batch['X']
 				loss = svi.step(data_batch, self.Z, X_batch) / (X_batch.shape[0] * X_batch.shape[1])
@@ -139,7 +140,7 @@ class Model():
 			prev_logprob = 0
 			j = 0
 
-			while True:
+			while j < MAX_ITER:
 				tmp_train_losses = []
 				for data_batch in train_loader:
 					X_batch = data_batch['X']
